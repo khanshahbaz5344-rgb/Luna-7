@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUNA-7: The Seven-Day Moon Survival Challenge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0f19; color: #e2e8f0; font-family: 'Courier New', Courier, monospace; }
+        .bar-bg { background-color: #1e293b; }
+        .bar-fill { transition: width 0.5s ease-in-out; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- START SCREEN -->
+    <div id="start-screen" class="max-w-2xl w-full bg-slate-900 border border-slate-700 p-8 rounded-lg shadow-2xl text-center">
+        <h1 class="text-4xl font-bold text-cyan-400 mb-4">LUNA-7</h1>
+        <h2 class="text-xl text-slate-300 mb-6">The Seven-Day Moon Survival Challenge</h2>
+        <p class="text-slate-400 mb-8">You are the commander of a lunar research outpost near the Moon's South Pole. Keep your crew of 4 alive for 7 days. Balance your resources carefully.</p>
+        
+        <h3 class="text-lg text-slate-200 mb-4">Select Mission Difficulty:</h3>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <button onclick="startGame('easy')" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 rounded font-bold text-white transition">Easy (100% Res)</button>
+            <button onclick="startGame('normal')" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded font-bold text-white transition">Normal (85% Res)</button>
+            <button onclick="startGame('hard')" class="px-6 py-3 bg-red-600 hover:bg-red-500 rounded font-bold text-white transition">Hard (70% Res)</button>
+        </div>
+    </div>
+
+    <!-- GAME DASHBOARD -->
+    <div id="game-screen" class="hidden max-w-4xl w-full grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Main Stats -->
+        <div class="md:col-span-2 bg-slate-900 border border-slate-700 p-6 rounded-lg shadow-2xl">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                <h2 class="text-2xl font-bold text-cyan-400">MISSION DAY <span id="day-display" class="text-white">1</span>/7</h2>
+                <h2 class="text-xl font-bold text-slate-300">CREW: <span class="text-white">4/4</span></h2>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Power -->
+                <div>
+                    <div class="flex justify-between mb-1"><span class="font-bold">Power</span><span id="power-val">100%</span></div>
+                    <div class="w-full h-4 bar-bg rounded"><div id="power-bar" class="h-4 bg-yellow-400 rounded bar-fill" style="width: 100%"></div></div>
+                </div>
+                <!-- Oxygen -->
+                <div>
+                    <div class="flex justify-between mb-1"><span class="font-bold">Oxygen</span><span id="oxygen-val">100%</span></div>
+                    <div class="w-full h-4 bar-bg rounded"><div id="oxygen-bar" class="h-4 bg-cyan-400 rounded bar-fill" style="width: 100%"></div></div>
+                </div>
+                <!-- Water -->
+                <div>
+                    <div class="flex justify-between mb-1"><span class="font-bold">Water</span><span id="water-val">100%</span></div>
+                    <div class="w-full h-4 bar-bg rounded"><div id="water-bar" class="h-4 bg-blue-400 rounded bar-fill" style="width: 100%"></div></div>
+                </div>
+                <!-- Food -->
+                <div>
+                    <div class="flex justify-between mb-1"><span class="font-bold">Food</span><span id="food-val">100%</span></div>
+                    <div class="w-full h-4 bar-bg rounded"><div id="food-bar" class="h-4 bg-emerald-400 rounded bar-fill" style="width: 100%"></div></div>
+                </div>
+            </div>
+            
+            <div id="event-panel" class="mt-8 border border-red-500/50 bg-red-900/20 p-4 rounded">
+                <h3 class="text-red-400 font-bold mb-2">⚠ INCOMING EVENT</h3>
+                <h4 id="event-title" class="text-lg text-white mb-2">Loading...</h4>
+                <p id="event-desc" class="text-slate-300 mb-4 text-sm">Loading...</p>
+                <div id="event-choices" class="flex flex-col gap-2">
+                    <!-- Choices injected via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar / NASA Info -->
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-lg shadow-2xl h-fit">
+            <h3 class="text-lg font-bold text-cyan-400 mb-4">NASA Inspiration</h3>
+            <p class="text-sm text-slate-400 mb-4">The Lunar South Pole features permanently shadowed regions and peaks of eternal light.</p>
+            <p class="text-sm text-slate-400 mb-4"><strong>Math Model:</strong><br> E_next = E_curr + E_gen - E_cons</p>
+            <div class="bg-slate-800 p-3 rounded text-xs text-slate-500 border border-slate-700">
+                Data simulated for educational purposes. Based on NASA Artemis parameters.
+            </div>
+        </div>
+    </div>
+
+    <!-- END SCREEN -->
+    <div id="end-screen" class="hidden max-w-2xl w-full bg-slate-900 border border-slate-700 p-8 rounded-lg shadow-2xl text-center">
+        <h1 id="end-title" class="text-4xl font-bold mb-4">MISSION FAILED</h1>
+        <p id="end-desc" class="text-slate-300 mb-8">A critical resource reached 0%.</p>
+        <button onclick="location.reload()" class="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 rounded font-bold text-white transition">Restart Mission</button>
+    </div>
+
+    <script>
+        let day = 1;
+        let resources = { power: 100, oxygen: 100, water: 100, food: 100 };
+        let drainMultiplier = 1;
+
+        const events = [
+            {
+                title: "The Long Shadow",
+                desc: "The base has entered an extended period of darkness. Solar generation is severely reduced.",
+                choices: [
+                    { text: "Drain batteries to keep all systems running (Power -20)", effects: { power: -20, oxygen: 0, water: 0, food: 0 } },
+                    { text: "Cut life support temporarily to save energy (Oxygen -15, Water -10)", effects: { power: 0, oxygen: -15, water: -10, food: 0 } }
+                ]
+            },
+            {
+                title: "Regolith Dust Contamination",
+                desc: "Lunar dust has coated the solar arrays, reducing power output.",
+                choices: [
+                    { text: "Send a crew member outside to clean them (Oxygen -20, Water -15, Power +10)", effects: { power: 10, oxygen: -20, water: -15, food: 0 } },
+                    { text: "Ignore it and accept lower power (Power -25)", effects: { power: -25, oxygen: 0, water: 0, food: 0 } }
+                ]
+            },
+            {
+                title: "Micrometeorite Strike",
+                desc: "A small strike has damaged the hydroponics bay.",
+                choices: [
+                    { text: "Use emergency power and water to repair it (Power -15, Water -20)", effects: { power: -15, oxygen: 0, water: -20, food: 0 } },
+                    { text: "Seal the bay and lose food crops (Food -30)", effects: { power: 0, oxygen: 0, water: 0, food: -30 } }
+                ]
+            },
+            {
+                title: "Water Recycling Glitch",
+                desc: "The water purification system is throwing error codes.",
+                choices: [
+                    { text: "Run emergency bypass (Power -15)", effects: { power: -15, oxygen: 0, water: 0, food: 0 } },
+                    { text: "Use spare filters (Water -15)", effects: { power: 0, oxygen: 0, water: -15, food: 0 } }
+                ]
+            },
+            {
+                title: "Solar Flare Warning",
+                desc: "A solar flare is incoming. Extra shielding is needed.",
+                choices: [
+                    { text: "Power up magnetic deflector (Power -30)", effects: { power: -30, oxygen: 0, water: 0, food: 0 } },
+                    { text: "Hunker down in safe room (Food -15, Oxygen -15)", effects: { power: 0, oxygen: -15, water: 0, food: -15 } }
+                ]
+            },
+            {
+                title: "Comms System Failure",
+                desc: "Connection to Earth is lost. The crew is stressed.",
+                choices: [
+                    { text: "Route extra power to reboot array (Power -20)", effects: { power: -20, oxygen: 0, water: 0, food: 0 } },
+                    { text: "Allow extra rations to boost morale (Food -20)", effects: { power: 0, oxygen: 0, water: 0, food: -20 } }
+                ]
+            },
+            {
+                title: "Final Stretch",
+                desc: "The transport ship arrives tomorrow. Systems are degrading.",
+                choices: [
+                    { text: "Push all systems to the limit (All Resources -10)", effects: { power: -10, oxygen: -10, water: -10, food: -10 } },
+                    { text: "Conserve everything and wait it out (Power -5, Oxygen -15, Water -15)", effects: { power: -5, oxygen: -15, water: -15, food: 0 } }
+                ]
+            }
+        ];
+
+        function startGame(difficulty) {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            
+            if (difficulty === 'easy') { resources = {power: 100, oxygen: 100, water: 100, food: 100}; drainMultiplier = 5; }
+            else if (difficulty === 'normal') { resources = {power: 85, oxygen: 85, water: 85, food: 85}; drainMultiplier = 8; }
+            else { resources = {power: 70, oxygen: 70, water: 70, food: 70}; drainMultiplier = 12; }
+            
+            updateUI();
+            loadEvent();
+        }
+
+        function updateUI() {
+            ['power', 'oxygen', 'water', 'food'].forEach(res => {
+                resources[res] = Math.max(0, Math.min(100, resources[res]));
+                document.getElementById(res + '-val').innerText = resources[res] + '%';
+                document.getElementById(res + '-bar').style.width = resources[res] + '%';
+            });
+            document.getElementById('day-display').innerText = day;
+            checkLoss();
+        }
+
+        function checkLoss() {
+            if (resources.power === 0 || resources.oxygen === 0 || resources.water === 0 || resources.food === 0) {
+                endGame(false);
+            }
+        }
+
+        function loadEvent() {
+            const ev = events[day - 1];
+            document.getElementById('event-title').innerText = ev.title;
+            document.getElementById('event-desc').innerText = ev.desc;
+            
+            const choicesDiv = document.getElementById('event-choices');
+            choicesDiv.innerHTML = '';
+            
+            ev.choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.className = "text-left bg-slate-800 hover:bg-slate-700 text-white p-3 rounded border border-slate-600 transition text-sm";
+                btn.innerText = choice.text;
+                btn.onclick = () => handleChoice(choice.effects);
+                choicesDiv.appendChild(btn);
+            });
+        }
+
+        function handleChoice(effects) {
+            for (let key in effects) {
+                resources[key] += effects[key];
+            }
+            for (let key in resources) {
+                resources[key] -= drainMultiplier;
+            }
+
+            day++;
+            updateUI();
+            
+            if (resources.power > 0 && resources.oxygen > 0 && resources.water > 0 && resources.food > 0) {
+                if (day > 7) {
+                    endGame(true);
+                } else {
+                    loadEvent();
+                }
+            }
+        }
+
+        function endGame(win) {
+            document.getElementById('game-screen').classList.add('hidden');
+            const endScreen = document.getElementById('end-screen');
+            endScreen.classList.remove('hidden');
+            
+            if (win) {
+                document.getElementById('end-title').innerText = "MISSION SUCCESS";
+                document.getElementById('end-title').className = "text-4xl font-bold text-emerald-400 mb-4";
+                document.getElementById('end-desc').innerText = "You survived 7 days on the lunar surface. The transport ship has arrived!";
+            } else {
+                document.getElementById('end-title').innerText = "MISSION FAILED";
+                document.getElementById('end-title').className = "text-4xl font-bold text-red-500 mb-4";
+                document.getElementById('end-desc').innerText = "A critical resource reached 0%. The outpost is lost.";
+            }
+        }
+    </script>
+</body>
+</html>
